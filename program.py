@@ -1,40 +1,45 @@
-import mne
 from scipy.io import loadmat
-import numpy as np
-import matplotlib.pyplot as plt
-from mpl_toolkits.mplot3d import Axes3D  # noqa
+import mne
 
-import os
 
+
+#Pobieranie danych
 path = 'A:/Repozytorium/Analysis_EEG_signals/standard_16.elc'
 annots = loadmat('data/Subject_1/sessions_5Hz.mat')
 oct_y = annots['Y']
 oct_x = annots['Xa']
 
+#Budowa zmiennej raw
+
 ch_names=('O2', 'AF3', 'AF4', 'P4', 'P3', 'F4', 'Fz', 'F3', 'FCz', 'Pz', 'C4', 'C3', 'CPz', 'Cz', 'Oz', 'O1')
-
-ten_twenty_montage = mne.channels.make_standard_montage('standard_1020')
-print(ten_twenty_montage)
-
-
-
-#montage = mne.channels.read_custom_montage(path)
 info = mne.create_info(ch_names, 256, 'eeg')
 raw = mne.io.RawArray(oct_x, info)
-raw_1020 = raw.copy().set_montage(ten_twenty_montage)
 
-#raw.save('subj1data_raw.fif')
+#Ustawianie sensorów
+
+ten_twenty_montage = mne.channels.make_standard_montage('standard_1020')
+raw_1020 = raw.copy().set_montage(ten_twenty_montage)
+raw_1020.plot_sensors()
+
+#Wyświetlenie pobranych danych
 scalings = {'mag': 1, 'grad': 1}
 raw_1020.plot(n_channels=16, scalings=scalings, title='Data from arrays',
        show=True, block=True)
 
+#Tworzenie zdarzenia migania iodą i wyświetlanie tych danych
+event = mne.make_fixed_length_events(raw_1020, start=0, stop=30, duration=0.2)
+raw.plot(events=event, start=0, duration=5, color='gray', event_color='r')
+
+#Analiza PSD
+raw_1020.plot_psd(fmax=200)
 
 
-raw.pick_types(meg=False, eeg=True, eog=False)
-#print(mne.viz.plot_sensors)
+#Analiza ICE
+ica = mne.preprocessing.ICA(n_components=16, random_state=97, max_iter=800)
+ica.fit(raw_1020)
+ica.exclude = [1, 2]  # details on how we picked these are omitted here
+ica.plot_properties(raw_1020, picks=ica.exclude)
 
-raw_1020.plot_sensors()
-raw.plot(duration=5, n_channels=16)
-
-raw_1020.plot_psd(fmax=5)
+ica.plot_components()
+ica.plot_overlay(raw_1020, exclude=[0], picks='eeg')
 
